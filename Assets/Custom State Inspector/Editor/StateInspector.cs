@@ -3,21 +3,22 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CustomStateMachine;
 
 namespace StateInspectorWindow
 {
     public class StateInspector : EditorWindow
     {
         string searchField;
-        Vector2 scrollSearchResult, scrollActions, scrollTransitions;
+        Vector2 scrollSearchResult, scrollActions, scrollConnections;
         [System.Flags]
         enum SearchFilter
         {
             //Actions                             = 1 << 1,
-            //Transitions                         = 1 << 2,
+            //Connections                         = 1 << 2,
             MissingAction                       = 1 << 3,
-            MissingTransition                   = 1 << 4,
-            IncompleteTransition                = 1 << 5
+            MissingConnection                   = 1 << 4,
+            IncompleteConnection                = 1 << 5
         }
         SearchFilter searchFilter;
         Dictionary<State, SearchFilter> searchResults;
@@ -81,10 +82,10 @@ namespace StateInspectorWindow
             filterCategories.padding.left = 3;
             filterCategories.fontSize = 16;
             GUILayout.Label(new GUIContent("\u21BB", "null action slot"), filterCategories);
-            GUILayout.Label(new GUIContent("\u2325", "null transition slot"), filterCategories);
+            GUILayout.Label(new GUIContent("\u2325", "null connection slot"), filterCategories);
             filterCategories.padding.left = 5;
             filterCategories.fontSize = 21;
-            GUILayout.Label(new GUIContent("\u2292", "transition does not lead to state"), filterCategories);
+            GUILayout.Label(new GUIContent("\u2292", "connection does not lead to state"), filterCategories);
 
             GUILayout.EndHorizontal();
             #endregion
@@ -143,10 +144,10 @@ namespace StateInspectorWindow
                 filterFlagIcons.normal.textColor = keyValuePair.Value.HasFlag(SearchFilter.MissingAction) ? bad : good;
                 GUILayout.Label("\u25CF", filterFlagIcons);
 
-                filterFlagIcons.normal.textColor = keyValuePair.Value.HasFlag(SearchFilter.MissingTransition) ? bad : good;
+                filterFlagIcons.normal.textColor = keyValuePair.Value.HasFlag(SearchFilter.MissingConnection) ? bad : good;
                 GUILayout.Label("\u25B2", filterFlagIcons);
 
-                filterFlagIcons.normal.textColor = keyValuePair.Value.HasFlag(SearchFilter.IncompleteTransition) ? bad : good;
+                filterFlagIcons.normal.textColor = keyValuePair.Value.HasFlag(SearchFilter.IncompleteConnection) ? bad : good;
                 GUILayout.Label("\u25C6", filterFlagIcons);
 
                 GUILayout.EndHorizontal();
@@ -207,32 +208,32 @@ namespace StateInspectorWindow
             EditorGUILayout.EndScrollView();
             #endregion
 
-            #region Transition fields + linked states
-            scrollTransitions = EditorGUILayout.BeginScrollView(scrollActions, GUILayout.Width(400), GUILayout.Height(200));
+            #region Connection fields + linked states
+            scrollConnections = EditorGUILayout.BeginScrollView(scrollActions, GUILayout.Width(400), GUILayout.Height(200));
             _selectedState.Update();
-            SerializedProperty transitions = _selectedState.FindProperty(nameof(selected.transitions));
-            for (int i = 0; i < transitions.arraySize; i++)
+            SerializedProperty connections = _selectedState.FindProperty(nameof(selected.connections));
+            for (int i = 0; i < connections.arraySize; i++)
             {
                 EditorGUILayout.BeginHorizontal();
 
-                SerializedProperty transitionProp = transitions.GetArrayElementAtIndex(i);
-                GUI.color = transitionProp.objectReferenceValue == null ? nullSlotColour : fullSlotColour;
-                EditorGUILayout.PropertyField(transitionProp, GUIContent.none);
+                SerializedProperty connectionProp = connections.GetArrayElementAtIndex(i);
+                GUI.color = connectionProp.objectReferenceValue == null ? nullSlotColour : fullSlotColour;
+                EditorGUILayout.PropertyField(connectionProp, GUIContent.none);
 
-                Transition currentTransition = (Transition)transitionProp.objectReferenceValue;
-                if (currentTransition == null)
+                Connection currentConnection = (Connection)connectionProp.objectReferenceValue;
+                if (currentConnection == null)
                 {
                     GUI.color = nullSlotColour;
-                    EditorGUILayout.LabelField("missing transition!!!", EditorStyles.whiteLargeLabel);
+                    EditorGUILayout.LabelField("missing connection!!!", EditorStyles.whiteLargeLabel);
                     GUI.color = fullSlotColour;
                 }
                 else
                 {
-                    SerializedObject transitionSerializedObject = new SerializedObject(currentTransition);
-                    SerializedProperty nextStateProp = transitionSerializedObject.FindProperty(nameof(currentTransition.nextState));
+                    SerializedObject connectionSerializedObject = new SerializedObject(currentConnection);
+                    SerializedProperty nextStateProp = connectionSerializedObject.FindProperty(nameof(currentConnection.nextState));
                     GUI.color = nextStateProp.objectReferenceValue == null ? nullSlotColour : fullSlotColour;
                     EditorGUILayout.PropertyField(nextStateProp, GUIContent.none);
-                    transitionSerializedObject.ApplyModifiedProperties();
+                    connectionSerializedObject.ApplyModifiedProperties();
                 }
 
                 EditorGUILayout.EndHorizontal();
@@ -283,7 +284,7 @@ namespace StateInspectorWindow
                 if (
                     currentAsset.name == "State" ||
                     currentAsset.name == "Action" ||
-                    currentAsset.name == "Transition"
+                    currentAsset.name == "Connection"
                     )
                 {
                     guidList.Remove(guid);
@@ -295,8 +296,8 @@ namespace StateInspectorWindow
                 // if (currentAsset.actions.Any())
                 //     flags |= SearchFilter.Actions;
 
-                // if (currentAsset.transitions.Any())
-                //     flags |= SearchFilter.Transitions;
+                // if (currentAsset.connections.Any())
+                //     flags |= SearchFilter.Connections;
 
                 foreach (var action in currentAsset.actions)
                 {
@@ -307,16 +308,16 @@ namespace StateInspectorWindow
                     }
                 }
 
-                foreach (var transition in currentAsset.transitions)
+                foreach (var connection in currentAsset.connections)
                 {
-                    if (transition == null)
+                    if (connection == null)
                     {
-                        flags |= SearchFilter.MissingTransition;
-                        flags |= SearchFilter.IncompleteTransition; // gets this one too by default
+                        flags |= SearchFilter.MissingConnection;
+                        flags |= SearchFilter.IncompleteConnection; // gets this one too by default
                     }
-                    else if (transition.nextState == null)
+                    else if (connection.nextState == null)
                     {
-                        flags |= SearchFilter.IncompleteTransition;
+                        flags |= SearchFilter.IncompleteConnection;
                     }
                 }
 
