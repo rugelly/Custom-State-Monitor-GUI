@@ -13,32 +13,57 @@ namespace CustomStateMachine
         [SerializeField]
         public State fallbackState;
 
+        [SerializeField]
+        bool firstRun;
+
         private void Awake()
         {
             currentState = initialState;
+            firstRun = true;
         }
 
         private void Start()
         {
-            currentState.firstTimeRunning = true;
+            // check if state needs to be immediately changed
+            // the value of firstRun can be kept as-is
+            foreach (var connection in currentState.connections)
+            {
+                if (connection.Evaluate(this))
+                {
+                    currentState = connection.nextState;
+                    break;
+                }
+            }
         }
 
         private void Update()
         {
-            if (currentState.firstTimeRunning)
+            foreach (Connection connection in currentState.connections)
             {
-                currentState.firstTimeRunning = false;
+                if (connection.exceededTimeLimit())
+                {
+                    currentState.Exit(this);
+                    currentState = connection.fallbackIfStuck ? fallbackState : connection.nextState;
+                    firstRun = true;
+                    return;
+                }
+
+                if (connection.Evaluate(this))
+                {
+                    currentState.Exit(this);
+                    currentState = connection.nextState;
+                    firstRun = true;
+                    return;
+                }
+            }
+
+            if (firstRun)
+            {
                 currentState.Enter(this);
+                firstRun = false;
             }
 
             currentState.Tick(this);
-        }
-
-        public void ChangeState(State newState)
-        {
-            currentState.Exit(this);
-            currentState.firstTimeRunning = true;
-            currentState = newState;
         }
     }
 }

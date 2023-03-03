@@ -35,7 +35,7 @@ namespace CustomStateMachine
             timeElapsed = 0;
         }
 
-        public abstract bool Evaluate(Manager m); // the only abstract method. The state calls all the other stuff
+        public abstract bool Evaluate(Manager m); 
 
         public void Exit()
         {
